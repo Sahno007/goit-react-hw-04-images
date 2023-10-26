@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import SearchBar from './SearchBar/SearchBar';
-import ImageGalery from './ImageGallery/ImageGallery';
+import ImageGallery from './ImageGallery/ImageGallery';
 import Modal from './Modal/Modal';
 import fetchPixabay from 'services/pixabay';
 import Button from './Button/Button';
@@ -15,32 +15,42 @@ export const App = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isShowModal, setIsShowModal] = useState(false);
   const [selectedIMG, setSelectedIMG] = useState(false);
+  const [isVisibleBtn, setIsVisibleBtn] = useState(true);
+
+  const fetchData = async () => {
+    if (!searchText) {
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const resp = await fetchPixabay(searchText, currentPage);
+
+      if (!resp.ok) {
+        setError('Sorry, something not good');
+        throw new Error();
+      }
+
+      const data = await resp.json();
+
+      if (data.totalHits === 0) {
+        setError('Sorry, nothing');
+        throw new Error();
+      } else {
+        setTotalHits(data.totalHits);
+        setItems(prevItems => [...prevItems, ...data.hits]);
+        setIsVisibleBtn(true);
+      }
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (searchText) {
-      setIsLoading(true);
-      fetchPixabay(searchText, currentPage)
-        .then(resp => {
-          if (!resp.ok) {
-            setError('Sorry, something not good');
-            throw new Error();
-          }
-          return resp.json();
-        })
-        .then(data => {
-          if (data.totalHits === 0) {
-            setError('Sorry, nothing');
-            throw new Error();
-          } else {
-            setItems(prevItems => [...prevItems, ...data.hits]);
-            setTotalHits(data.totalHits);
-          }
-        })
-        .catch(err => console.log(err))
-        .finally(() => {
-          setIsLoading(false);
-        });
-    }
+    fetchData();
   }, [searchText, currentPage]);
 
   const handlerImageClick = ({
@@ -65,6 +75,7 @@ export const App = () => {
     setCurrentPage(1);
     setItems([]);
     setError('');
+    setIsVisibleBtn(false);
   };
 
   return (
@@ -77,10 +88,10 @@ export const App = () => {
         />
       )}
       {items.length > 0 && (
-        <ImageGalery items={items} handlerImageClick={handlerImageClick} />
+        <ImageGallery items={items} handlerImageClick={handlerImageClick} />
       )}
       {isLoading && <Loader />}
-      {items.length < totalHits && !error && !isLoading && (
+      {isVisibleBtn && totalHits > items.length && (
         <Button handlerLoadMore={handlerLoadMore} />
       )}
       {error && <p className="error">{error}</p>}
